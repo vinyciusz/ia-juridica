@@ -1,19 +1,26 @@
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import uvicorn
 import os
-from database import inserir_regra_juridica, listar_todas_regras  # Agora importamos corretamente
+from database import inserir_regra_juridica, listar_todas_regras  # Certifique-se de que listar_todas_regras está implementado corretamente
 
 app = FastAPI()
+
+# ✅ Definição do modelo Pydantic para validação dos dados enviados via JSON
+class RegraJuridica(BaseModel):
+    titulo: str
+    descricao: str
 
 @app.get("/")
 def home():
     return {"mensagem": "API da IA Jurídica rodando na nuvem!"}
 
+# ✅ Agora recebendo os dados via JSON no body
 @app.post("/adicionar-regra")
-def adicionar_regra(titulo: str, descricao: str):
+def adicionar_regra(regra: RegraJuridica):
     """Endpoint para adicionar uma nova regra jurídica"""
     try:
-        nova_regra = inserir_regra_juridica(titulo, descricao)
+        nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
         return {"mensagem": "Regra jurídica adicionada com sucesso!", "regra": nova_regra}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -27,7 +34,7 @@ def listar_regras():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Configuração correta da porta no Railway
+# ✅ Configuração correta da porta no Railway (NÃO ALTERAR)
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
     uvicorn.run(app, host="0.0.0.0", port=port)
