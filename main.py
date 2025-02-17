@@ -22,3 +22,7 @@ def adicionar_regra(titulo: str, descricao: str):
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
     uvicorn.run(app, host="0.0.0.0", port=port)
+    
+@app.get("/listar-regras")
+def listar_regras():
+    return {"mensagem": "Endpoint funcionando!"}
