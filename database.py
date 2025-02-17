@@ -33,3 +33,8 @@ def listar_todas_regras():
     cur.close()
     conn.close()
     return regras
+
+def get_db_connection():
+    """Cria e retorna uma conexão com o banco de dados PostgreSQL"""
+    print("Tentando conectar ao banco de dados...")  # Adicionado para debug
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
