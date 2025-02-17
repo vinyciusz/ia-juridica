@@ -3,18 +3,17 @@ from psycopg2.extras import RealDictCursor
 import os
 from urllib.parse import urlparse
 
-# Obtendo a URL do banco de dados do Railway
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Captura a URL correta do banco de dados
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
 
-# Parse da URL para garantir que os parâmetros estão corretos
+if not DATABASE_URL:
+    raise ValueError("Erro: DATABASE_URL não está definida no ambiente!")
+
 def get_db_connection():
     """Cria e retorna uma conexão com o banco de dados PostgreSQL"""
-    if not DATABASE_URL:
-        raise ValueError("DATABASE_URL não está definida!")
-
     url = urlparse(DATABASE_URL)
     conn = psycopg2.connect(
-        dbname=url.path[1:],
+        dbname=url.path[1:],  # Remove a barra inicial do caminho
         user=url.username,
         password=url.password,
         host=url.hostname,
@@ -38,20 +37,9 @@ def criar_tabela():
         conn.commit()
         cur.close()
         conn.close()
+        print("Tabela criada com sucesso!")
     except Exception as e:
         print(f"Erro ao criar a tabela: {e}")
 
 # Criar a tabela ao iniciar o banco
 criar_tabela()
-
-def inserir_regra_juridica(titulo, descricao):
-    """Adiciona uma nova regra jurídica ao banco de dados"""
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO regras_juridicas (titulo, descricao) VALUES (%s, %s) RETURNING id;",
-                (titulo, descricao))
-    regra_id = cur.fetchone()["id"]
-    conn.commit()
-    cur.close()
-    conn.close()
-    return {"id": regra_id, "titulo": titulo, "descricao": descricao}
