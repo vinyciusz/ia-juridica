@@ -46,7 +46,12 @@ def inserir_regra_juridica(titulo, descricao):
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(query, (titulo, descricao))
-                regra_id = cur.fetchone()[0]
+                regra = cur.fetchone()
+                
+                if not regra:
+                    raise Exception("⚠️ Nenhum ID retornado ao inserir a regra.")
+                
+                regra_id = regra["id"]
                 conn.commit()
                 print(f"✅ Regra inserida com sucesso! ID: {regra_id}")
                 return {"id": regra_id, "titulo": titulo, "descricao": descricao}
@@ -62,11 +67,17 @@ def listar_todas_regras():
             with conn.cursor() as cur:
                 cur.execute(query)
                 regras = cur.fetchall()
+                
+                if not regras:
+                    print("⚠️ Nenhuma regra encontrada.")
+                    return []
+                
                 print(f"📜 {len(regras)} regras encontradas.")
                 return regras
     except Exception as e:
         print(f"❌ ERRO: Falha ao listar regras: {e}")
         raise
 
-# ✅ Garante que a tabela exista ao iniciar o sistema
-criar_tabela()
+# ✅ Garante que a tabela seja criada apenas uma vez
+if __name__ == "__main__":
+    criar_tabela()
