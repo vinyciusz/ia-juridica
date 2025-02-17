@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import os
-from database import inserir_regra_juridica  # Mantendo apenas essa importação
+from database import inserir_regra_juridica, listar_todas_regras  # Mantendo apenas importações necessárias
 
 app = FastAPI()
 
@@ -18,11 +18,16 @@ def adicionar_regra(titulo: str, descricao: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/listar-regras")
+def listar_regras():
+    """Lista todas as regras jurídicas cadastradas no banco"""
+    try:
+        regras = listar_todas_regras()  # Função que busca todas as regras no banco
+        return {"regras": regras}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Configuração correta da porta no Railway
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
     uvicorn.run(app, host="0.0.0.0", port=port)
-    
-@app.get("/listar-regras")
-def listar_regras():
-    return {"mensagem": "Endpoint funcionando!"}
