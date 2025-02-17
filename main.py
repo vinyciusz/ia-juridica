@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 import uvicorn
 import os
-from database import inserir_regra_juridica, listar_todas_regras  # Mantendo apenas importações necessárias
+from database import inserir_regra_juridica, listar_todas_regras  # Agora importamos corretamente
 
 app = FastAPI()
 
@@ -20,9 +20,9 @@ def adicionar_regra(titulo: str, descricao: str):
 
 @app.get("/listar-regras")
 def listar_regras():
-    """Lista todas as regras jurídicas cadastradas no banco"""
+    """Endpoint para listar todas as regras jurídicas"""
     try:
-        regras = listar_todas_regras()  # Função que busca todas as regras no banco
+        regras = listar_todas_regras()
         return {"regras": regras}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
