@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 import os
-from database import inserir_regra_juridica, listar_todas_regras  # Certifique-se de que listar_todas_regras está implementado corretamente
+from database import inserir_regra_juridica, listar_todas_regras, get_db_connection
 
 app = FastAPI()
 
@@ -15,14 +15,17 @@ class RegraJuridica(BaseModel):
 def home():
     return {"mensagem": "API da IA Jurídica rodando na nuvem!"}
 
-# ✅ Agora recebendo os dados via JSON no body
+# ✅ Recebendo os dados via JSON no body
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
     """Endpoint para adicionar uma nova regra jurídica"""
     try:
+        print(f"Tentando inserir regra: {regra.titulo} - {regra.descricao}")  # Log para verificar entrada
         nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
+        print(f"Regra inserida com sucesso: {nova_regra}")  # Log para verificar sucesso
         return {"mensagem": "Regra jurídica adicionada com sucesso!", "regra": nova_regra}
     except Exception as e:
+        print(f"Erro ao inserir regra: {e}")  # Log para capturar erro
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/listar-regras")
@@ -34,30 +37,22 @@ def listar_regras():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ Configuração correta da porta no Railway (NÃO ALTERAR)
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-@app.post("/adicionar-regra")
-def adicionar_regra(titulo: str, descricao: str):
-    """Endpoint para adicionar uma nova regra jurídica"""
-    try:
-        print(f"Tentando inserir regra: {titulo} - {descricao}")  # Log para verificar entrada
-        nova_regra = inserir_regra_juridica(titulo, descricao)
-        print(f"Regra inserida com sucesso: {nova_regra}")  # Log para verificar sucesso
-        return {"mensagem": "Regra jurídica adicionada com sucesso!", "regra": nova_regra}
-    except Exception as e:
-        print(f"Erro ao inserir regra: {e}")  # Log para capturar erro
-        raise HTTPException(status_code=500, detail=str(e))
-
+# ✅ Teste manual de conexão ao banco de dados
+@app.get("/testar-conexao")
 def testar_conexao():
     try:
         conn = get_db_connection()
         cur = conn.cursor()
         cur.execute("SELECT 1;")
-        print(f"Teste de conexão bem-sucedido: {cur.fetchone()}")
+        resultado = cur.fetchone()
         cur.close()
         conn.close()
+        return {"mensagem": "Conexão bem-sucedida!", "resultado": resultado}
     except Exception as e:
         print(f"Erro ao conectar ao banco: {e}")
+        raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
+
+# ✅ Configuração correta da porta no Railway (NÃO ALTERAR)
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
+    uvicorn.run(app, host="0.0.0.0", port=port)
