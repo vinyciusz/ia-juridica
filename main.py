@@ -50,3 +50,14 @@ def adicionar_regra(titulo: str, descricao: str):
     except Exception as e:
         print(f"Erro ao inserir regra: {e}")  # Log para capturar erro
         raise HTTPException(status_code=500, detail=str(e))
+
+def testar_conexao():
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1;")
+        print(f"Teste de conexão bem-sucedido: {cur.fetchone()}")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"Erro ao conectar ao banco: {e}")
