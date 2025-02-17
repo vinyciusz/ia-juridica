@@ -38,3 +38,15 @@ def listar_regras():
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))  # Mantendo a porta 8080
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+@app.post("/adicionar-regra")
+def adicionar_regra(titulo: str, descricao: str):
+    """Endpoint para adicionar uma nova regra jurídica"""
+    try:
+        print(f"Tentando inserir regra: {titulo} - {descricao}")  # Log para verificar entrada
+        nova_regra = inserir_regra_juridica(titulo, descricao)
+        print(f"Regra inserida com sucesso: {nova_regra}")  # Log para verificar sucesso
+        return {"mensagem": "Regra jurídica adicionada com sucesso!", "regra": nova_regra}
+    except Exception as e:
+        print(f"Erro ao inserir regra: {e}")  # Log para capturar erro
+        raise HTTPException(status_code=500, detail=str(e))
