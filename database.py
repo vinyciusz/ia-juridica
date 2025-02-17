@@ -23,3 +23,13 @@ def inserir_regra_juridica(titulo, descricao):
     cur.close()
     conn.close()
     return {"id": regra_id, "titulo": titulo, "descricao": descricao}
+
+def listar_todas_regras():
+    """Lista todas as regras jurídicas cadastradas no banco de dados"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT id, titulo, descricao FROM regras_juridicas;")
+    regras = cur.fetchall()
+    cur.close()
+    conn.close()
+    return regras
