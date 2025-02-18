@@ -31,23 +31,26 @@ def home():
 # ✅ Adicionar Regra Jurídica (Corrigido para retornar os valores corretamente)
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
-    """📜 Adiciona uma nova regra jurídica ao banco de dados"""
+    """Insere uma nova regra jurídica na tabela regras_juridicas"""
     try:
-        print(f"📝 Tentando inserir regra: {regra.titulo}")
-
-        resultado = inserir_regra_juridica(regra.titulo, regra.descricao)
-
-        # Verificando o tipo do retorno
-        if isinstance(resultado, tuple):
-            print(f"⚠️ Retorno inesperado do banco de dados: {resultado}")
-            return {"mensagem": "⚠️ Erro ao inserir regra, retorno inesperado.", "detalhes": str(resultado)}
-
-        print(f"✅ Regra inserida com sucesso! {resultado}")
-        return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": resultado}
-
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO regras_juridicas (titulo, descricao) VALUES (%s, %s) RETURNING id, titulo, descricao;",
+            (regra.titulo, regra.descricao)
+        )
+        nova_regra = cur.fetchone()
+        conn.commit()
+        cur.close()
+        conn.close()
+        
+        return {
+            "mensagem": "📌 Regra jurídica adicionada com sucesso!",
+            "regra": {"id": nova_regra[0], "titulo": nova_regra[1], "descricao": nova_regra[2]}
+        }
     except Exception as e:
-        print(f"❌ ERRO ao inserir regra: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar regra: {str(e)}")
+
 # ✅ Listar Regras Jurídicas (Corrigido para exibir ID, título e descrição corretamente)
 @app.get("/listar-regras")
 def listar_regras():
