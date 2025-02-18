@@ -5,7 +5,7 @@ import os
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-from database import inserir_regra_juridica, listar_todas_regras, buscar_regras_juridicas
+from database import inserir_regra_juridica, listar_todas_regras
 import re
 import requests
 from fastapi import Request
@@ -14,10 +14,6 @@ from fastapi import Request
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-
-if not TWILIO_ACCOUNT_SID or not TWILIO_AUTH_TOKEN or not TWILIO_WHATSAPP_NUMBER:
-    print("❌ ERRO: Variáveis do Twilio não configuradas corretamente!")
-    exit(1)
 
 # ✅ Inicializando FastAPI
 app = FastAPI()
@@ -32,12 +28,45 @@ class RegraJuridica(BaseModel):
 def home():
     return {"mensagem": "🚀 API da IA Jurídica rodando na nuvem!"}
 
+# ✅ Adicionar Regra Jurídica
+@app.post("/adicionar-regra")
+def adicionar_regra(regra: RegraJuridica):
+    try:
+        nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
+        return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": nova_regra}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ✅ Listar Regras Jurídicas
+@app.get("/listar-regras")
+def listar_regras():
+    try:
+        regras = listar_todas_regras()
+        return {"regras": regras}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ✅ Teste de Conexão com o Banco de Dados
+@app.get("/testar-conexao")
+def testar_conexao():
+    try:
+        from database import get_db_connection
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1;")
+        resultado = cur.fetchone()
+        cur.close()
+        conn.close()
+        return {"mensagem": "✅ Conexão bem-sucedida!", "resultado": resultado}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
+
 # ✅ Upload e Processamento de Documentos
 @app.post("/upload-documento")
 async def upload_documento(file: UploadFile = File(...)):
     try:
         if not file.filename.endswith((".pdf", ".png", ".jpg", ".jpeg")):
-            raise HTTPException(status_code=400, detail="⚠️ Formato de arquivo não suportado!")
+            raise HTTPException(status_code=400, detail="⚠️ Formato de arquivo não suportado. Envie um PDF ou imagem!")
 
         # Converte PDF para Imagem, se necessário
         if file.filename.endswith(".pdf"):
@@ -51,7 +80,6 @@ async def upload_documento(file: UploadFile = File(...)):
 
         return {"mensagem": "📄 Documento processado com sucesso!", "texto": texto_limpo}
     except Exception as e:
-        print(f"❌ ERRO ao processar documento: {e}")
         raise HTTPException(status_code=500, detail="Erro ao processar o documento.")
 
 # ✅ Webhook para WhatsApp (Twilio)
@@ -60,32 +88,23 @@ async def webhook_whatsapp(
     Body: str = Form(...),
     From: str = Form(...)
 ):
-    """📩 Webhook para receber mensagens do WhatsApp"""
     try:
         mensagem = Body.strip().lower()
         numero_remetente = From.strip()
 
-        print(f"📥 Mensagem recebida de {numero_remetente}: {mensagem}")
+        if not mensagem:
+            return {"status": "⚠️ Nenhuma mensagem recebida"}
 
-        # 🔎 Verifica se há uma regra jurídica relacionada ao termo da mensagem
-        regras_encontradas = buscar_regras_juridicas(mensagem)
+        resposta = processar_mensagem(mensagem)
 
-        if regras_encontradas:
-            resposta = "📖 Regras encontradas:\n"
-            resposta += "\n".join([f"🔹 {r['titulo']}: {r['descricao']}" for r in regras_encontradas])
-        else:
-            resposta = "⚠️ Nenhuma regra encontrada para esse termo. Consulte um advogado para mais informações."
+        if not resposta:
+            resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
 
-        # 📤 Enviar resposta para o WhatsApp
         sucesso = enviar_mensagem(numero_remetente, resposta)
 
-        if sucesso:
-            return {"status": "✅ Mensagem processada!"}
-        else:
-            return {"status": "⚠️ Mensagem recebida, mas erro ao enviar resposta"}
+        return {"status": "✅ Mensagem processada!" if sucesso else "⚠️ Erro ao enviar resposta"}
 
     except Exception as e:
-        print(f"❌ ERRO no webhook do WhatsApp: {e}")
         return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
 
 # ✅ Envio de Mensagem para WhatsApp via Twilio
@@ -100,12 +119,10 @@ def enviar_mensagem(telefone, mensagem):
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         response = requests.post(url, data=data, auth=auth)
 
-        print(f"📤 Enviando mensagem para {telefone}: {mensagem}")
-        print(f"📡 Resposta Twilio: {response.status_code} - {response.text}")
-
         if response.status_code in [200, 201]:
             return True
         else:
+            print(f"⚠️ Falha ao enviar mensagem. Status: {response.status_code}, Erro: {response.text}")
             return False
 
     except Exception as e:
