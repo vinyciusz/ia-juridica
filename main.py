@@ -7,6 +7,7 @@ from pdf2image import convert_from_bytes
 from PIL import Image
 from database import inserir_regra_juridica, listar_todas_regras  # Mantendo importações necessárias
 import re  # Adicione essa importação no topo do arquivo
+from datetime import datetime
 
 app = FastAPI()
 
@@ -100,34 +101,21 @@ def limpar_texto_extraido(texto):
     texto_limpo = re.sub(r'\s+', ' ', texto).strip()
     return texto_limpo
 
-def extrair_dados_cnh(texto_extraido):
-    """📄 Função para extrair e estruturar os dados da CNH"""
+def identificar_tipo_documento(texto_extraido):
+    """Classifica o documento com base no texto extraído."""
     
-    dados_cnh = {
-        "nome": None,
-        "data_nascimento": None,
-        "n_registro": None,
-        "validade": None,
-        "cpf": None
+    # Regras baseadas em palavras-chave comuns para cada tipo de documento
+    padroes_documentos = {
+        "CNH": ["Carteira Nacional de Habilitação", "CNH Digital", "Registro", "Validade", "Habilitação"],
+        "RG": ["Registro Geral", "Órgão Emissor", "Nome", "CPF", "Data de Nascimento"],
+        "Contrato": ["CONTRATO", "Cláusula", "Contratante", "Contratada", "Assinatura"],
+        "Recibo": ["RECIBO", "Valor", "Recebemos de", "Assinatura"],
+        "Planta": ["Planta Baixa", "Projeto Arquitetônico", "Engenheiro", "CREA", "Assinatura"],
     }
-
-    # 🔍 Procurando informações com expressões regulares
-    match_nome = re.search(r"(?<=NOME\s)[A-Z\s]+", texto_extraido)
-    match_data_nasc = re.search(r"DATA NASCIMENTO\s(\d{2}/\d{2}/\d{4})", texto_extraido)
-    match_n_registro = re.search(r"Nº REGISTRO\s(\d+)", texto_extraido)
-    match_validade = re.search(r"VALIDADE\s(\d{2}/\d{2}/\d{4})", texto_extraido)
-    match_cpf = re.search(r"(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_extraido)
-
-    # 📌 Salvando os dados encontrados
-    if match_nome:
-        dados_cnh["nome"] = match_nome.group().strip()
-    if match_data_nasc:
-        dados_cnh["data_nascimento"] = match_data_nasc.group(1)
-    if match_n_registro:
-        dados_cnh["n_registro"] = match_n_registro.group(1)
-    if match_validade:
-        dados_cnh["validade"] = match_validade.group(1)
-    if match_cpf:
-        dados_cnh["cpf"] = match_cpf.group(1)
-
-    return dados_cnh
+    
+    for tipo, palavras_chave in padroes_documentos.items():
+        for palavra in palavras_chave:
+            if re.search(palavra, texto_extraido, re.IGNORECASE):
+                return tipo  # Retorna o tipo identificado
+    
+    return "Desconhecido"  # Se nenhuma correspondência for encontrada
