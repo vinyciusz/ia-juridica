@@ -1,3 +1,4 @@
+from fastapi import Form
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 import uvicorn
@@ -148,13 +149,16 @@ TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 
 @app.post("/webhook-whatsapp")
-async def webhook_whatsapp(request: Request):
+async def webhook_whatsapp(
+    Body: str = Form(...),
+    From: str = Form(...)
+):
     """📩 Webhook para receber mensagens do WhatsApp"""
     try:
-        # 🔍 Tenta ler o JSON da requisição
-        data = await request.json()
-        mensagem = data.get("Body", "").strip().lower()
-        numero_remetente = data.get("From", "")
+        mensagem = Body.strip().lower()
+        numero_remetente = From
+
+        print(f"📨 Mensagem recebida de {numero_remetente}: {mensagem}")
 
         if not mensagem:
             print("⚠️ Mensagem vazia recebida no webhook!")
@@ -170,7 +174,7 @@ async def webhook_whatsapp(request: Request):
     except Exception as e:
         print(f"❌ ERRO no webhook do WhatsApp: {e}")
         return {"status": "❌ Erro ao processar mensagem do WhatsApp"}
-
+        
 def enviar_mensagem(telefone, mensagem):
     """📤 Envia uma mensagem para o WhatsApp via Twilio"""
     url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
