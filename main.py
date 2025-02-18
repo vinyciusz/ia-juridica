@@ -5,7 +5,7 @@ import os
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-from database import inserir_regra_juridica, listar_todas_regras
+from database import inserir_regra_juridica, listar_todas_regras, buscar_regras_juridicas
 import re
 import requests
 from fastapi import Request
@@ -60,23 +60,29 @@ async def webhook_whatsapp(
     Body: str = Form(...),
     From: str = Form(...)
 ):
+    """📩 Webhook para receber mensagens do WhatsApp"""
     try:
         mensagem = Body.strip().lower()
         numero_remetente = From.strip()
 
-        print(f"📩 Mensagem recebida de {numero_remetente}: {mensagem}")
+        print(f"📥 Mensagem recebida de {numero_remetente}: {mensagem}")
 
-        if not mensagem:
-            return {"status": "⚠️ Nenhuma mensagem recebida"}
+        # 🔎 Verifica se há uma regra jurídica relacionada ao termo da mensagem
+        regras_encontradas = buscar_regras_juridicas(mensagem)
 
-        resposta = processar_mensagem(mensagem)
+        if regras_encontradas:
+            resposta = "📖 Regras encontradas:\n"
+            resposta += "\n".join([f"🔹 {r['titulo']}: {r['descricao']}" for r in regras_encontradas])
+        else:
+            resposta = "⚠️ Nenhuma regra encontrada para esse termo. Consulte um advogado para mais informações."
 
-        if not resposta:
-            resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
-
+        # 📤 Enviar resposta para o WhatsApp
         sucesso = enviar_mensagem(numero_remetente, resposta)
 
-        return {"status": "✅ Mensagem processada!" if sucesso else "⚠️ Erro ao enviar resposta"}
+        if sucesso:
+            return {"status": "✅ Mensagem processada!"}
+        else:
+            return {"status": "⚠️ Mensagem recebida, mas erro ao enviar resposta"}
 
     except Exception as e:
         print(f"❌ ERRO no webhook do WhatsApp: {e}")
