@@ -155,34 +155,52 @@ async def webhook_whatsapp(
 ):
     """📩 Webhook para receber mensagens do WhatsApp"""
     try:
-        mensagem = Body.strip().lower()
-        numero_remetente = From
-
-        print(f"📨 Mensagem recebida de {numero_remetente}: {mensagem}")
-
-        if not mensagem:
+        if not Body:
             print("⚠️ Mensagem vazia recebida no webhook!")
             return {"status": "⚠️ Nenhuma mensagem recebida"}
 
+        mensagem = Body.strip().lower()
+        numero_remetente = From.strip()
+
+        print(f"📥 Mensagem recebida de {numero_remetente}: {mensagem}")
+
         resposta = processar_mensagem(mensagem)
 
-        # 📤 Enviar resposta para o WhatsApp
-        enviar_mensagem(numero_remetente, resposta)
+        if not resposta:
+            resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
 
-        return {"status": "✅ Mensagem processada!"}
+        # 📤 Enviar resposta para o WhatsApp
+        sucesso = enviar_mensagem(numero_remetente, resposta)
+
+        if sucesso:
+            return {"status": "✅ Mensagem processada!"}
+        else:
+            return {"status": "⚠️ Mensagem recebida, mas erro ao enviar resposta"}
 
     except Exception as e:
         print(f"❌ ERRO no webhook do WhatsApp: {e}")
-        return {"status": "❌ Erro ao processar mensagem do WhatsApp"}
-        
+        return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
+
 def enviar_mensagem(telefone, mensagem):
     """📤 Envia uma mensagem para o WhatsApp via Twilio"""
-    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-    data = {
-        "From": f"whatsapp:{TWILIO_WHATSAPP_NUMBER}",
-        "To": telefone,
-        "Body": mensagem
-    }
-    auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-    response = requests.post(url, data=data, auth=auth)
-    print(f"📨 Mensagem enviada para {telefone}: {mensagem}")
+    try:
+        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+        data = {
+            "From": f"whatsapp:{TWILIO_WHATSAPP_NUMBER}",
+            "To": telefone,
+            "Body": mensagem
+        }
+        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+
+        response = requests.post(url, data=data, auth=auth)
+
+        if response.status_code == 201:
+            print(f"✅ Mensagem enviada com sucesso para {telefone}: {mensagem}")
+            return True
+        else:
+            print(f"⚠️ Falha ao enviar mensagem. Status: {response.status_code}, Erro: {response.text}")
+            return False
+
+    except Exception as e:
+        print(f"❌ ERRO ao enviar mensagem via Twilio: {e}")
+        return False
