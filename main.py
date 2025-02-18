@@ -31,12 +31,23 @@ def home():
 # ✅ Adicionar Regra Jurídica (Corrigido para retornar os valores corretamente)
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
+    """📜 Adiciona uma nova regra jurídica ao banco de dados"""
     try:
-        inserir_regra_juridica(regra.titulo, regra.descricao)
-        return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": {"titulo": regra.titulo, "descricao": regra.descricao}}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"📝 Tentando inserir regra: {regra.titulo}")
 
+        resultado = inserir_regra_juridica(regra.titulo, regra.descricao)
+
+        # Verificando o tipo do retorno
+        if isinstance(resultado, tuple):
+            print(f"⚠️ Retorno inesperado do banco de dados: {resultado}")
+            return {"mensagem": "⚠️ Erro ao inserir regra, retorno inesperado.", "detalhes": str(resultado)}
+
+        print(f"✅ Regra inserida com sucesso! {resultado}")
+        return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": resultado}
+
+    except Exception as e:
+        print(f"❌ ERRO ao inserir regra: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 # ✅ Listar Regras Jurídicas (Corrigido para exibir ID, título e descrição corretamente)
 @app.get("/listar-regras")
 def listar_regras():
