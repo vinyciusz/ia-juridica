@@ -8,7 +8,6 @@ from PIL import Image
 from database import inserir_regra_juridica, listar_todas_regras
 import re
 import requests
-from fastapi import Request
 
 # ✅ Configuração do Twilio
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -33,6 +32,11 @@ def home():
 def adicionar_regra(regra: RegraJuridica):
     try:
         nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
+        
+        # Garantir que a regra adicionada está formatada corretamente
+        if isinstance(nova_regra, tuple):  
+            nova_regra = {"titulo": nova_regra[0], "descricao": nova_regra[1]}
+
         return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": nova_regra}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -42,7 +46,11 @@ def adicionar_regra(regra: RegraJuridica):
 def listar_regras():
     try:
         regras = listar_todas_regras()
-        return {"regras": regras}
+        
+        # Garantir que as regras estão formatadas corretamente como dicionários
+        regras_formatadas = [{"titulo": r[0], "descricao": r[1]} for r in regras]
+
+        return {"regras": regras_formatadas}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -148,12 +156,6 @@ def processar_mensagem(mensagem):
         return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
 
     return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
-
-# ✅ Função para Limpar Texto Extraído
-def limpar_texto_extraido(texto):
-    if not texto:
-        return ""
-    return re.sub(r'\s+', ' ', texto).strip()
 
 # ✅ Configuração correta da porta no Railway
 if __name__ == "__main__":
