@@ -150,16 +150,26 @@ TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(request: Request):
     """📩 Webhook para receber mensagens do WhatsApp"""
-    data = await request.json()
-    mensagem = data["Body"].strip().lower()
-    numero_remetente = data["From"]
+    try:
+        # 🔍 Tenta ler o JSON da requisição
+        data = await request.json()
+        mensagem = data.get("Body", "").strip().lower()
+        numero_remetente = data.get("From", "")
 
-    resposta = processar_mensagem(mensagem)
+        if not mensagem:
+            print("⚠️ Mensagem vazia recebida no webhook!")
+            return {"status": "⚠️ Nenhuma mensagem recebida"}
 
-    # Enviar resposta para o WhatsApp
-    enviar_mensagem(numero_remetente, resposta)
+        resposta = processar_mensagem(mensagem)
 
-    return {"status": "Mensagem processada!"}
+        # 📤 Enviar resposta para o WhatsApp
+        enviar_mensagem(numero_remetente, resposta)
+
+        return {"status": "✅ Mensagem processada!"}
+
+    except Exception as e:
+        print(f"❌ ERRO no webhook do WhatsApp: {e}")
+        return {"status": "❌ Erro ao processar mensagem do WhatsApp"}
 
 def enviar_mensagem(telefone, mensagem):
     """📤 Envia uma mensagem para o WhatsApp via Twilio"""
