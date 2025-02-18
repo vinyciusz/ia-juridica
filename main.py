@@ -144,7 +144,7 @@ def identificar_tipo_documento(texto_extraido):
 
 # Configurações do Twilio
 TWILIO_ACCOUNT_SID = os.getenv("ACe5b9f302b1d66e4d177ca13f2e78f0ca")
-TWILIO_AUTH_TOKEN = os.getenv("028f3b563d763186cf61cc401c928d8d")
+TWILIO_AUTH_TOKEN = os.getenv("ae9d34910adcea724dd5ae4f5c4a230c")
 TWILIO_WHATSAPP_NUMBER = os.getenv("+13202389588")
 
 @app.post("/webhook-whatsapp")
