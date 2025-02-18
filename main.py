@@ -6,6 +6,7 @@ import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
 from database import inserir_regra_juridica, listar_todas_regras  # Mantendo importações necessárias
+import re  # Adicione essa importação no topo do arquivo
 
 app = FastAPI()
 
@@ -84,3 +85,16 @@ async def upload_documento(file: UploadFile = File(...)):
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
+
+def limpar_texto_extraido(texto):
+    """
+    🧹 Função para limpar e organizar o texto extraído do documento.
+    - Remove múltiplos espaços e quebras de linha
+    - Substitui caracteres estranhos
+    """
+    if not texto:
+        return ""
+
+    # Remove espaços duplicados e caracteres estranhos
+    texto_limpo = re.sub(r'\s+', ' ', texto).strip()
+    return texto_limpo
