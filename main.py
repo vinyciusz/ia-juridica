@@ -74,9 +74,10 @@ async def upload_documento(file: UploadFile = File(...)):
         else:
             imagem = Image.open(file.file)
             texto_extraido = pytesseract.image_to_string(imagem)
+            texto_limpo = limpar_texto_extraido(texto_extraido)  # Aplicando a limpeza no texto extraído
 
         print(f"🔍 Texto extraído do documento:\n{texto_extraido}")
-        return {"mensagem": "📄 Documento processado com sucesso!", "texto": texto_extraido}
+        return {"mensagem": "📄 Documento processado com sucesso!", "texto": texto_limpo}
     except Exception as e:
         print(f"❌ ERRO ao processar documento: {e}")
         raise HTTPException(status_code=500, detail="Erro ao processar o documento.")
