@@ -143,9 +143,9 @@ def identificar_tipo_documento(texto_extraido):
     return "Desconhecido"  # Se nenhuma correspondência for encontrada
 
 # Configurações do Twilio
-TWILIO_ACCOUNT_SID = os.getenv("ACe5b9f302b1d66e4d177ca13f2e78f0ca")
-TWILIO_AUTH_TOKEN = os.getenv("ae9d34910adcea724dd5ae4f5c4a230c")
-TWILIO_WHATSAPP_NUMBER = os.getenv("+13202389588")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(request: Request):
