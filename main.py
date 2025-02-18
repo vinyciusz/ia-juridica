@@ -35,7 +35,7 @@ def adicionar_regra(regra: RegraJuridica):
         
         # Garantir que a regra adicionada está formatada corretamente
         if isinstance(nova_regra, tuple):  
-            nova_regra = {"titulo": nova_regra[0], "descricao": nova_regra[1]}
+            nova_regra = {"id": nova_regra[0], "titulo": nova_regra[1], "descricao": nova_regra[2]}
 
         return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": nova_regra}
     except Exception as e:
@@ -48,7 +48,7 @@ def listar_regras():
         regras = listar_todas_regras()
         
         # Garantir que as regras estão formatadas corretamente como dicionários
-        regras_formatadas = [{"titulo": r[0], "descricao": r[1]} for r in regras]
+        regras_formatadas = [{"id": r[0], "titulo": r[1], "descricao": r[2]} for r in regras]
 
         return {"regras": regras_formatadas}
     except Exception as e:
@@ -89,73 +89,6 @@ async def upload_documento(file: UploadFile = File(...)):
         return {"mensagem": "📄 Documento processado com sucesso!", "texto": texto_limpo}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Erro ao processar o documento.")
-
-# ✅ Webhook para WhatsApp (Twilio)
-@app.post("/webhook-whatsapp")
-async def webhook_whatsapp(
-    Body: str = Form(...),
-    From: str = Form(...)
-):
-    try:
-        mensagem = Body.strip().lower()
-        numero_remetente = From.strip()
-
-        if not mensagem:
-            return {"status": "⚠️ Nenhuma mensagem recebida"}
-
-        resposta = processar_mensagem(mensagem)
-
-        if not resposta:
-            resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
-
-        sucesso = enviar_mensagem(numero_remetente, resposta)
-
-        return {"status": "✅ Mensagem processada!" if sucesso else "⚠️ Erro ao enviar resposta"}
-
-    except Exception as e:
-        return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
-
-# ✅ Envio de Mensagem para WhatsApp via Twilio
-def enviar_mensagem(telefone, mensagem):
-    try:
-        url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
-        data = {
-            "From": f"whatsapp:{TWILIO_WHATSAPP_NUMBER}",
-            "To": telefone,
-            "Body": mensagem
-        }
-        auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        response = requests.post(url, data=data, auth=auth)
-
-        if response.status_code in [200, 201]:
-            return True
-        else:
-            print(f"⚠️ Falha ao enviar mensagem. Status: {response.status_code}, Erro: {response.text}")
-            return False
-
-    except Exception as e:
-        print(f"❌ ERRO ao enviar mensagem via Twilio: {e}")
-        return False
-
-# ✅ Função para Processar Mensagem do WhatsApp
-def processar_mensagem(mensagem):
-    if mensagem in ["oi", "olá", "bom dia"]:
-        return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
-    
-    elif mensagem == "ajuda":
-        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
-    
-    elif mensagem.startswith("consultar "):
-        termo = mensagem.replace("consultar ", "")
-        regras = listar_todas_regras()
-        regras_encontradas = [r for r in regras if termo.lower() in r['titulo'].lower()]
-        return f"🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}" for r in regras_encontradas]) if regras_encontradas else "⚠️ Nenhuma regra encontrada."
-
-    elif mensagem == "regras":
-        regras = listar_todas_regras()
-        return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
-
-    return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
 
 # ✅ Configuração correta da porta no Railway
 if __name__ == "__main__":
