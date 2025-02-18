@@ -81,3 +81,26 @@ def listar_todas_regras():
 # ✅ Garante que a tabela seja criada apenas uma vez
 if __name__ == "__main__":
     criar_tabela()
+
+# Conectar ao banco de dados
+def get_db_connection():
+    return psycopg2.connect(os.getenv("DATABASE_URL"))
+
+# Função para buscar regras jurídicas no banco
+def buscar_regras_juridicas(termo):
+    """🔍 Busca regras jurídicas no banco de dados que contenham o termo informado"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    query = """
+        SELECT titulo, descricao FROM regras_juridicas
+        WHERE titulo ILIKE %s OR descricao ILIKE %s;
+    """
+    cur.execute(query, (f"%{termo}%", f"%{termo}%"))
+    resultados = cur.fetchall()
+    
+    cur.close()
+    conn.close()
+
+    # Retorna as regras encontradas
+    return [{"titulo": r[0], "descricao": r[1]} for r in resultados]
