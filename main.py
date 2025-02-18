@@ -60,6 +60,21 @@ def listar_regras():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+# ✅ Teste de Conexão com o Banco de Dados
+@app.get("/testar-conexao")
+def testar_conexao():
+    """Verifica se a conexão com o banco de dados está funcionando"""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT 1;")
+        resultado = cur.fetchone()
+        cur.close()
+        conn.close()
+        return {"mensagem": "✅ Conexão bem-sucedida!", "resultado": resultado[0]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
+
 # ✅ Webhook para WhatsApp (Corrigido)
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(
