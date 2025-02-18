@@ -1,75 +1,54 @@
-from fastapi import Form
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import uvicorn
 import os
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-from database import inserir_regra_juridica, listar_todas_regras  # Mantendo importações necessárias
-import re  # Adicione essa importação no topo do arquivo
-from datetime import datetime
+from database import inserir_regra_juridica, listar_todas_regras
+import re
 import requests
 from fastapi import Request
-def processar_mensagem(mensagem):
-    """🤖 Processa comandos recebidos via WhatsApp"""
-    if mensagem in ["oi", "olá", "bom dia"]:
-        return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
-    
-    elif mensagem == "ajuda":
-        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
-    
-    elif mensagem.startswith("consultar "):
-        termo = mensagem.replace("consultar ", "")
-        regras = buscar_regra_juridica(termo)
-        if regras:
-            return f"🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
-        return "⚠️ Nenhuma regra encontrada para esse termo."
-    
-    elif mensagem == "regras":
-        regras = listar_todas_regras()
-        return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
 
-    return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
+# ✅ Configuração do Twilio
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 
+# ✅ Inicializando FastAPI
 app = FastAPI()
 
-# ✅ Modelo Pydantic para validação de regras jurídicas
+# ✅ Modelo para Regras Jurídicas
 class RegraJuridica(BaseModel):
     titulo: str
     descricao: str
 
+# ✅ Endpoint de Boas-Vindas
 @app.get("/")
 def home():
-    """🏠 Endpoint de boas-vindas da API"""
     return {"mensagem": "🚀 API da IA Jurídica rodando na nuvem!"}
 
+# ✅ Adicionar Regra Jurídica
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
-    """📜 Adiciona uma nova regra jurídica ao banco de dados"""
     try:
-        print(f"📝 Tentando inserir regra: {regra.titulo}")
         nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
-        print(f"✅ Regra inserida com sucesso! {nova_regra}")
         return {"mensagem": "📌 Regra jurídica adicionada com sucesso!", "regra": nova_regra}
     except Exception as e:
-        print(f"❌ ERRO ao inserir regra: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ✅ Listar Regras Jurídicas
 @app.get("/listar-regras")
 def listar_regras():
-    """📜 Lista todas as regras jurídicas armazenadas"""
     try:
         regras = listar_todas_regras()
-        print(f"📂 {len(regras)} regras encontradas!")
         return {"regras": regras}
     except Exception as e:
-        print(f"❌ ERRO ao listar regras: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ✅ Teste de Conexão com o Banco de Dados
 @app.get("/testar-conexao")
 def testar_conexao():
-    """🔍 Teste de conexão com o banco de dados"""
     try:
         from database import get_db_connection
         conn = get_db_connection()
@@ -80,109 +59,56 @@ def testar_conexao():
         conn.close()
         return {"mensagem": "✅ Conexão bem-sucedida!", "resultado": resultado}
     except Exception as e:
-        print(f"❌ ERRO ao conectar ao banco: {e}")
         raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
 
+# ✅ Upload e Processamento de Documentos
 @app.post("/upload-documento")
 async def upload_documento(file: UploadFile = File(...)):
-    """📄 Faz upload e processa um documento PDF ou imagem"""
     try:
-        print(f"📤 Recebendo arquivo: {file.filename}")
         if not file.filename.endswith((".pdf", ".png", ".jpg", ".jpeg")):
             raise HTTPException(status_code=400, detail="⚠️ Formato de arquivo não suportado. Envie um PDF ou imagem!")
 
-        # Converte PDF para imagem se necessário
+        # Converte PDF para Imagem, se necessário
         if file.filename.endswith(".pdf"):
             imagens = convert_from_bytes(await file.read())
             texto_extraido = "\n".join([pytesseract.image_to_string(img) for img in imagens])
         else:
             imagem = Image.open(file.file)
             texto_extraido = pytesseract.image_to_string(imagem)
-            texto_limpo = limpar_texto_extraido(texto_extraido)  # Aplicando a limpeza no texto extraído
 
-        print(f"🔍 Texto extraído do documento:\n{texto_extraido}")
+        texto_limpo = limpar_texto_extraido(texto_extraido)
+
         return {"mensagem": "📄 Documento processado com sucesso!", "texto": texto_limpo}
     except Exception as e:
-        print(f"❌ ERRO ao processar documento: {e}")
         raise HTTPException(status_code=500, detail="Erro ao processar o documento.")
 
-# ✅ Configuração correta da porta no Railway (NÃO ALTERAR)
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
-    uvicorn.run(app, host="0.0.0.0", port=port)
-
-def limpar_texto_extraido(texto):
-    """
-    🧹 Função para limpar e organizar o texto extraído do documento.
-    - Remove múltiplos espaços e quebras de linha
-    - Substitui caracteres estranhos
-    """
-    if not texto:
-        return ""
-
-    # Remove espaços duplicados e caracteres estranhos
-    texto_limpo = re.sub(r'\s+', ' ', texto).strip()
-    return texto_limpo
-
-def identificar_tipo_documento(texto_extraido):
-    """Classifica o documento com base no texto extraído."""
-    
-    # Regras baseadas em palavras-chave comuns para cada tipo de documento
-    padroes_documentos = {
-        "CNH": ["Carteira Nacional de Habilitação", "CNH Digital", "Registro", "Validade", "Habilitação"],
-        "RG": ["Registro Geral", "Órgão Emissor", "Nome", "CPF", "Data de Nascimento"],
-        "Contrato": ["CONTRATO", "Cláusula", "Contratante", "Contratada", "Assinatura"],
-        "Recibo": ["RECIBO", "Valor", "Recebemos de", "Assinatura"],
-        "Planta": ["Planta Baixa", "Projeto Arquitetônico", "Engenheiro", "CREA", "Assinatura"],
-    }
-    
-    for tipo, palavras_chave in padroes_documentos.items():
-        for palavra in palavras_chave:
-            if re.search(palavra, texto_extraido, re.IGNORECASE):
-                return tipo  # Retorna o tipo identificado
-    
-    return "Desconhecido"  # Se nenhuma correspondência for encontrada
-
-# Configurações do Twilio
-TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
-
+# ✅ Webhook para WhatsApp (Twilio)
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(
     Body: str = Form(...),
     From: str = Form(...)
 ):
-    """📩 Webhook para receber mensagens do WhatsApp"""
     try:
-        if not Body:
-            print("⚠️ Mensagem vazia recebida no webhook!")
-            return {"status": "⚠️ Nenhuma mensagem recebida"}
-
         mensagem = Body.strip().lower()
         numero_remetente = From.strip()
 
-        print(f"📥 Mensagem recebida de {numero_remetente}: {mensagem}")
+        if not mensagem:
+            return {"status": "⚠️ Nenhuma mensagem recebida"}
 
         resposta = processar_mensagem(mensagem)
 
         if not resposta:
             resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
 
-        # 📤 Enviar resposta para o WhatsApp
         sucesso = enviar_mensagem(numero_remetente, resposta)
 
-        if sucesso:
-            return {"status": "✅ Mensagem processada!"}
-        else:
-            return {"status": "⚠️ Mensagem recebida, mas erro ao enviar resposta"}
+        return {"status": "✅ Mensagem processada!" if sucesso else "⚠️ Erro ao enviar resposta"}
 
     except Exception as e:
-        print(f"❌ ERRO no webhook do WhatsApp: {e}")
         return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
 
+# ✅ Envio de Mensagem para WhatsApp via Twilio
 def enviar_mensagem(telefone, mensagem):
-    """📤 Envia uma mensagem para o WhatsApp via Twilio"""
     try:
         url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
         data = {
@@ -191,11 +117,9 @@ def enviar_mensagem(telefone, mensagem):
             "Body": mensagem
         }
         auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-
         response = requests.post(url, data=data, auth=auth)
 
-        if response.status_code == 201:
-            print(f"✅ Mensagem enviada com sucesso para {telefone}: {mensagem}")
+        if response.status_code in [200, 201]:
             return True
         else:
             print(f"⚠️ Falha ao enviar mensagem. Status: {response.status_code}, Erro: {response.text}")
@@ -204,3 +128,34 @@ def enviar_mensagem(telefone, mensagem):
     except Exception as e:
         print(f"❌ ERRO ao enviar mensagem via Twilio: {e}")
         return False
+
+# ✅ Função para Processar Mensagem do WhatsApp
+def processar_mensagem(mensagem):
+    if mensagem in ["oi", "olá", "bom dia"]:
+        return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
+    
+    elif mensagem == "ajuda":
+        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
+    
+    elif mensagem.startswith("consultar "):
+        termo = mensagem.replace("consultar ", "")
+        regras = listar_todas_regras()
+        regras_encontradas = [r for r in regras if termo.lower() in r['titulo'].lower()]
+        return f"🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}" for r in regras_encontradas]) if regras_encontradas else "⚠️ Nenhuma regra encontrada."
+
+    elif mensagem == "regras":
+        regras = listar_todas_regras()
+        return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
+
+    return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
+
+# ✅ Função para Limpar Texto Extraído
+def limpar_texto_extraido(texto):
+    if not texto:
+        return ""
+    return re.sub(r'\s+', ' ', texto).strip()
+
+# ✅ Configuração correta da porta no Railway
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
