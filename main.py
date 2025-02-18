@@ -99,3 +99,35 @@ def limpar_texto_extraido(texto):
     # Remove espaços duplicados e caracteres estranhos
     texto_limpo = re.sub(r'\s+', ' ', texto).strip()
     return texto_limpo
+
+def extrair_dados_cnh(texto_extraido):
+    """📄 Função para extrair e estruturar os dados da CNH"""
+    
+    dados_cnh = {
+        "nome": None,
+        "data_nascimento": None,
+        "n_registro": None,
+        "validade": None,
+        "cpf": None
+    }
+
+    # 🔍 Procurando informações com expressões regulares
+    match_nome = re.search(r"(?<=NOME\s)[A-Z\s]+", texto_extraido)
+    match_data_nasc = re.search(r"DATA NASCIMENTO\s(\d{2}/\d{2}/\d{4})", texto_extraido)
+    match_n_registro = re.search(r"Nº REGISTRO\s(\d+)", texto_extraido)
+    match_validade = re.search(r"VALIDADE\s(\d{2}/\d{2}/\d{4})", texto_extraido)
+    match_cpf = re.search(r"(\d{3}\.\d{3}\.\d{3}-\d{2})", texto_extraido)
+
+    # 📌 Salvando os dados encontrados
+    if match_nome:
+        dados_cnh["nome"] = match_nome.group().strip()
+    if match_data_nasc:
+        dados_cnh["data_nascimento"] = match_data_nasc.group(1)
+    if match_n_registro:
+        dados_cnh["n_registro"] = match_n_registro.group(1)
+    if match_validade:
+        dados_cnh["validade"] = match_validade.group(1)
+    if match_cpf:
+        dados_cnh["cpf"] = match_cpf.group(1)
+
+    return dados_cnh
