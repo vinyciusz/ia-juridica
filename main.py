@@ -33,7 +33,6 @@ def adicionar_regra(regra: RegraJuridica):
     try:
         nova_regra = inserir_regra_juridica(regra.titulo, regra.descricao)
         
-        # Garantir que a regra adicionada está formatada corretamente
         if isinstance(nova_regra, tuple):  
             nova_regra = {"id": nova_regra[0], "titulo": nova_regra[1], "descricao": nova_regra[2]}
 
@@ -47,27 +46,35 @@ def listar_regras():
     try:
         regras = listar_todas_regras()
         
-        # Garantir que as regras estão formatadas corretamente como dicionários
         regras_formatadas = [{"id": r[0], "titulo": r[1], "descricao": r[2]} for r in regras]
 
         return {"regras": regras_formatadas}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ Teste de Conexão com o Banco de Dados
-@app.get("/testar-conexao")
-def testar_conexao():
+# ✅ Webhook para WhatsApp (Twilio)
+@app.post("/webhook-whatsapp")
+async def webhook_whatsapp(
+    Body: str = Form(...),
+    From: str = Form(...)
+):
     try:
-        from database import get_db_connection
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1;")
-        resultado = cur.fetchone()
-        cur.close()
-        conn.close()
-        return {"mensagem": "✅ Conexão bem-sucedida!", "resultado": resultado}
+        mensagem = Body.strip().lower()
+        numero_remetente = From.strip()
+
+        if not mensagem:
+            return {"status": "⚠️ Nenhuma mensagem recebida"}
+
+        resposta = processar_mensagem(mensagem)
+
+        if not resposta:
+            resposta = "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
+
+        sucesso = enviar_mensagem(numero_remetente, resposta)
+
+        return {"status": "✅ Mensagem processada!" if sucesso else "⚠️ Erro ao enviar resposta"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
+        return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
 
 # ✅ Upload e Processamento de Documentos
 @app.post("/upload-documento")
@@ -76,7 +83,6 @@ async def upload_documento(file: UploadFile = File(...)):
         if not file.filename.endswith((".pdf", ".png", ".jpg", ".jpeg")):
             raise HTTPException(status_code=400, detail="⚠️ Formato de arquivo não suportado. Envie um PDF ou imagem!")
 
-        # Converte PDF para Imagem, se necessário
         if file.filename.endswith(".pdf"):
             imagens = convert_from_bytes(await file.read())
             texto_extraido = "\n".join([pytesseract.image_to_string(img) for img in imagens])
