@@ -8,6 +8,28 @@ from PIL import Image
 from database import inserir_regra_juridica, listar_todas_regras  # Mantendo importações necessárias
 import re  # Adicione essa importação no topo do arquivo
 from datetime import datetime
+import requests
+from fastapi import Request
+def processar_mensagem(mensagem):
+    """🤖 Processa comandos recebidos via WhatsApp"""
+    if mensagem in ["oi", "olá", "bom dia"]:
+        return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
+    
+    elif mensagem == "ajuda":
+        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
+    
+    elif mensagem.startswith("consultar "):
+        termo = mensagem.replace("consultar ", "")
+        regras = buscar_regra_juridica(termo)
+        if regras:
+            return f"🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
+        return "⚠️ Nenhuma regra encontrada para esse termo."
+    
+    elif mensagem == "regras":
+        regras = listar_todas_regras()
+        return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r['titulo']}" for r in regras])
+
+    return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
 
 app = FastAPI()
 
@@ -119,3 +141,34 @@ def identificar_tipo_documento(texto_extraido):
                 return tipo  # Retorna o tipo identificado
     
     return "Desconhecido"  # Se nenhuma correspondência for encontrada
+
+# Configurações do Twilio
+TWILIO_ACCOUNT_SID = os.getenv("ACe5b9f302b1d66e4d177ca13f2e78f0ca")
+TWILIO_AUTH_TOKEN = os.getenv("028f3b563d763186cf61cc401c928d8d")
+TWILIO_WHATSAPP_NUMBER = os.getenv("+13202389588")
+
+@app.post("/webhook-whatsapp")
+async def webhook_whatsapp(request: Request):
+    """📩 Webhook para receber mensagens do WhatsApp"""
+    data = await request.json()
+    mensagem = data["Body"].strip().lower()
+    numero_remetente = data["From"]
+
+    resposta = processar_mensagem(mensagem)
+
+    # Enviar resposta para o WhatsApp
+    enviar_mensagem(numero_remetente, resposta)
+
+    return {"status": "Mensagem processada!"}
+
+def enviar_mensagem(telefone, mensagem):
+    """📤 Envia uma mensagem para o WhatsApp via Twilio"""
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Messages.json"
+    data = {
+        "From": f"whatsapp:{TWILIO_WHATSAPP_NUMBER}",
+        "To": telefone,
+        "Body": mensagem
+    }
+    auth = (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+    response = requests.post(url, data=data, auth=auth)
+    print(f"📨 Mensagem enviada para {telefone}: {mensagem}")
