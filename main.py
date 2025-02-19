@@ -10,6 +10,7 @@ import re
 import requests
 from fastapi import Request
 from faiss_index import buscar_regras
+import openai  # Biblioteca da OpenAI
 
 # ✅ Configuração do Twilio
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -141,6 +142,40 @@ def enviar_mensagem(telefone, mensagem):
     except Exception as e:
         print(f"❌ ERRO ao enviar mensagem via Twilio: {e}")
         return False
+
+# ✅ Configuração da OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
+
+# ✅ Teste de Conexão com OpenAI (Novo endpoint)
+@app.get("/testar-gpt")
+def testar_gpt():
+    """Testa a conexão com a API da OpenAI."""
+    try:
+        resposta = openai.ChatCompletion.create(
+            model="gpt-4-turbo",
+            messages=[{"role": "system", "content": "Diga apenas: Teste bem-sucedido!"}]
+        )
+        return {"mensagem": resposta["choices"][0]["message"]["content"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao conectar com OpenAI: {str(e)}")
+
+# ✅ Consulta ao GPT-4 Turbo (Nova função)
+def consultar_gpt(pergunta):
+    """Envia uma pergunta para o GPT-4 Turbo e retorna a resposta."""
+    try:
+        resposta = openai.ChatCompletion.create(
+            model="gpt-4-turbo",
+            messages=[
+                {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião."},
+                {"role": "user", "content": pergunta}
+            ]
+        )
+        return resposta["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"⚠️ Erro ao consultar IA: {str(e)}"
+        
+
 
 # ✅ Configuração correta da porta no Railway
 if __name__ == "__main__":
