@@ -30,7 +30,7 @@ class RegraJuridica(BaseModel):
 def home():
     return {"mensagem": "🚀 API da IA Jurídica rodando na nuvem!"}
 
-# ✅ Adicionar Regra Jurídica (Corrigido para retornar os valores corretamente)
+# ✅ Adicionar Regra Jurídica
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
     """Insere uma nova regra jurídica na tabela regras_juridicas"""
@@ -53,7 +53,7 @@ def adicionar_regra(regra: RegraJuridica):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar regra: {str(e)}")
 
-# ✅ Listar Regras Jurídicas (Corrigido para exibir ID, título e descrição corretamente)
+# ✅ Listar Regras Jurídicas
 @app.get("/listar-regras")
 def listar_regras():
     try:
@@ -77,7 +77,7 @@ def testar_conexao():
     except Exception as e:
         raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
 
-# ✅ Webhook para WhatsApp (Corrigido)
+# ✅ Webhook para WhatsApp
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(
     Body: str = Form(...),
@@ -144,38 +144,35 @@ def enviar_mensagem(telefone, mensagem):
         return False
 
 # ✅ Configuração da OpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ✅ Teste de Conexão com OpenAI (Novo endpoint)
+# ✅ Teste de Conexão com OpenAI
 @app.get("/testar-gpt")
 def testar_gpt():
     """Testa a conexão com a API da OpenAI."""
     try:
-        resposta = openai.ChatCompletion.create(
+        resposta = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[{"role": "system", "content": "Diga apenas: Teste bem-sucedido!"}]
         )
-        return {"mensagem": resposta["choices"][0]["message"]["content"]}
+        return {"mensagem": resposta.choices[0].message.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao conectar com OpenAI: {str(e)}")
 
-# ✅ Consulta ao GPT-4 Turbo (Nova função)
+# ✅ Consulta ao GPT-4 Turbo
 def consultar_gpt(pergunta):
     """Envia uma pergunta para o GPT-4 Turbo e retorna a resposta."""
     try:
-        resposta = openai.ChatCompletion.create(
+        resposta = client.chat.completions.create(
             model="gpt-4-turbo",
             messages=[
                 {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião."},
                 {"role": "user", "content": pergunta}
             ]
         )
-        return resposta["choices"][0]["message"]["content"]
+        return resposta.choices[0].message.content
     except Exception as e:
         return f"⚠️ Erro ao consultar IA: {str(e)}"
-        
-
 
 # ✅ Configuração correta da porta no Railway
 if __name__ == "__main__":
