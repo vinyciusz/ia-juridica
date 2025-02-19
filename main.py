@@ -152,19 +152,19 @@ def testar_gpt():
     """Testa a conexão com a API da OpenAI."""
     try:
         resposta = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[{"role": "system", "content": "Diga apenas: Teste bem-sucedido!"}]
         )
         return {"mensagem": resposta.choices[0].message.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao conectar com OpenAI: {str(e)}")
 
-# ✅ Consulta ao GPT-4 Turbo
+# ✅ Consulta ao GPT-4o
 def consultar_gpt(pergunta):
-    """Envia uma pergunta para o GPT-4 Turbo e retorna a resposta."""
+    """Envia uma pergunta para o GPT-4o e retorna a resposta."""
     try:
         resposta = client.chat.completions.create(
-            model="gpt-4-turbo",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião."},
                 {"role": "user", "content": pergunta}
