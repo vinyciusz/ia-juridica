@@ -9,13 +9,17 @@ from database import inserir_regra_juridica, listar_todas_regras, get_db_connect
 import re
 import requests
 from fastapi import Request
-from faiss_index import buscar_regras
+from faiss_index import buscar_regras, construir_indice
 import openai  # Biblioteca da OpenAI
 
-# ✅ Configuração do Twilio
+# ✅ Configuração do Twilio (WhatsApp)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
+
+# ✅ Configuração da OpenAI
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
 
 # ✅ Inicializando FastAPI
 app = FastAPI()
@@ -25,15 +29,18 @@ class RegraJuridica(BaseModel):
     titulo: str
     descricao: str
 
+# ✅ Construção do índice FAISS ao iniciar a API
+construir_indice()
+
 # ✅ Endpoint de Boas-Vindas
 @app.get("/")
 def home():
     return {"mensagem": "🚀 API da IA Jurídica rodando na nuvem!"}
 
-# ✅ Adicionar Regra Jurídica
+# ✅ Adicionar Regra Jurídica (PostgreSQL e FAISS)
 @app.post("/adicionar-regra")
 def adicionar_regra(regra: RegraJuridica):
-    """Insere uma nova regra jurídica na tabela regras_juridicas"""
+    """Insere uma nova regra jurídica e atualiza o índice FAISS"""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -45,7 +52,10 @@ def adicionar_regra(regra: RegraJuridica):
         conn.commit()
         cur.close()
         conn.close()
-        
+
+        # Atualiza o FAISS com a nova regra
+        construir_indice()
+
         return {
             "mensagem": "📌 Regra jurídica adicionada com sucesso!",
             "regra": {"id": nova_regra[0], "titulo": nova_regra[1], "descricao": nova_regra[2]}
@@ -62,29 +72,14 @@ def listar_regras():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ✅ Teste de Conexão com o Banco de Dados
-@app.get("/testar-conexao")
-def testar_conexao():
-    """Verifica se a conexão com o banco de dados está funcionando"""
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT 1;")
-        resultado = cur.fetchone()
-        cur.close()
-        conn.close()
-        return {"mensagem": "✅ Conexão bem-sucedida!", "resultado": resultado[0]}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="Falha na conexão com o banco de dados.")
-
-# ✅ Webhook para WhatsApp
+# ✅ Webhook para WhatsApp (IA Jurídica Natural)
 @app.post("/webhook-whatsapp")
 async def webhook_whatsapp(
     Body: str = Form(...),
     From: str = Form(...)
 ):
     try:
-        mensagem = Body.strip().lower()
+        mensagem = Body.strip()
         numero_remetente = From.strip()
 
         if not mensagem:
@@ -96,31 +91,46 @@ async def webhook_whatsapp(
     except Exception as e:
         return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
 
+# ✅ Processamento de Mensagem via IA Jurídica (FAISS + OpenAI)
 def processar_mensagem(mensagem):
-    if mensagem in ["oi", "olá", "bom dia"]:
+    if mensagem.lower() in ["oi", "olá", "bom dia"]:
         return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
     
-    elif mensagem == "ajuda":
-        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
+    elif mensagem.lower() == "ajuda":
+        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Falar com humano* - Transferência para advogado"
 
-    elif mensagem.startswith("consultar "):
+    elif mensagem.lower().startswith("consultar "):
         termo = mensagem.replace("consultar ", "")
-        regras = buscar_regras(termo)  # Agora busca no FAISS corretamente
+        regras = buscar_regras(termo)
 
-        if not regras:
+        if regras:
+            resposta = "📖 *Regras encontradas:*\n"
+            for idx, r in enumerate(regras, start=1):
+                resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+            return resposta
+        else:
             return "⚠️ Nenhuma regra encontrada para esse termo."
 
-        resposta = "📖 *Regras encontradas:*\n"
-        for idx, r in enumerate(regras, start=1):
-            resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+    elif mensagem.lower() == "falar com humano":
+        return "📞 Transferindo para um advogado... Aguarde um momento!"
 
-        return resposta
+    else:
+        return consultar_gpt(mensagem)  # IA responde de forma humanizada
 
-    elif mensagem == "regras":
-        regras = listar_todas_regras()
-        return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r[1]}" for r in regras])
-
-    return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
+# ✅ Consulta ao GPT-4 para Respostas Humanizadas
+def consultar_gpt(pergunta):
+    """Envia uma pergunta para o GPT-4 e retorna a resposta humanizada."""
+    try:
+        resposta = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião. Responda como um advogado experiente, com explicações claras e humanizadas."},
+                {"role": "user", "content": pergunta}
+            ]
+        )
+        return resposta["choices"][0]["message"]["content"]
+    except Exception as e:
+        return f"⚠️ Erro ao consultar IA: {str(e)}"
 
 # ✅ Envio de Mensagem para WhatsApp via Twilio
 def enviar_mensagem(telefone, mensagem):
@@ -143,36 +153,18 @@ def enviar_mensagem(telefone, mensagem):
         print(f"❌ ERRO ao enviar mensagem via Twilio: {e}")
         return False
 
-# ✅ Configuração da OpenAI
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
 # ✅ Teste de Conexão com OpenAI
 @app.get("/testar-gpt")
 def testar_gpt():
     """Testa a conexão com a API da OpenAI."""
     try:
-        resposta = client.chat.completions.create(
+        resposta = openai.ChatCompletion.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": "Diga apenas: Teste bem-sucedido!"}]
         )
-        return {"mensagem": resposta.choices[0].message.content}
+        return {"mensagem": resposta["choices"][0]["message"]["content"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao conectar com OpenAI: {str(e)}")
-
-# ✅ Consulta ao GPT-4o
-def consultar_gpt(pergunta):
-    """Envia uma pergunta para o GPT-4o e retorna a resposta."""
-    try:
-        resposta = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião."},
-                {"role": "user", "content": pergunta}
-            ]
-        )
-        return resposta.choices[0].message.content
-    except Exception as e:
-        return f"⚠️ Erro ao consultar IA: {str(e)}"
 
 # ✅ Configuração correta da porta no Railway
 if __name__ == "__main__":
