@@ -5,21 +5,20 @@ import os
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-from database import inserir_regra_juridica, listar_todas_regras, get_db_connection
 import re
 import requests
 from fastapi import Request
+from database import inserir_regra_juridica, listar_todas_regras, get_db_connection
 from faiss_index import buscar_regras, construir_indice
-import openai  # Biblioteca da OpenAI
+from openai import OpenAI
 
 # ✅ Configuração do Twilio (WhatsApp)
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
 
-# ✅ Configuração da OpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
+# ✅ Configuração do cliente OpenAI
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # ✅ Inicializando FastAPI
 app = FastAPI()
@@ -93,27 +92,13 @@ async def webhook_whatsapp(
 
 # ✅ Processamento de Mensagem via IA Jurídica (FAISS + OpenAI)
 def processar_mensagem(mensagem):
-    if mensagem.lower() in ["oi", "olá", "bom dia"]:
-        return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
-    
-    elif mensagem.lower() == "ajuda":
-        return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Falar com humano* - Transferência para advogado"
+    regras = buscar_regras(mensagem)
 
-    elif mensagem.lower().startswith("consultar "):
-        termo = mensagem.replace("consultar ", "")
-        regras = buscar_regras(termo)
-
-        if regras:
-            resposta = "📖 *Regras encontradas:*\n"
-            for idx, r in enumerate(regras, start=1):
-                resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
-            return resposta
-        else:
-            return "⚠️ Nenhuma regra encontrada para esse termo."
-
-    elif mensagem.lower() == "falar com humano":
-        return "📞 Transferindo para um advogado... Aguarde um momento!"
-
+    if regras:
+        resposta = "📖 *Regras encontradas:*\n"
+        for idx, r in enumerate(regras, start=1):
+            resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+        return resposta
     else:
         return consultar_gpt(mensagem)  # IA responde de forma humanizada
 
@@ -121,16 +106,35 @@ def processar_mensagem(mensagem):
 def consultar_gpt(pergunta):
     """Envia uma pergunta para o GPT-4 e retorna a resposta humanizada."""
     try:
-        resposta = openai.ChatCompletion.create(
+        resposta = client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "Você é uma IA jurídica especializada em direito imobiliário e usucapião. Responda como um advogado experiente, com explicações claras e humanizadas."},
                 {"role": "user", "content": pergunta}
             ]
         )
-        return resposta["choices"][0]["message"]["content"]
+        return resposta.choices[0].message.content
     except Exception as e:
         return f"⚠️ Erro ao consultar IA: {str(e)}"
+
+# ✅ Processamento de Documentos (OCR)
+@app.post("/processar-documento")
+async def processar_documento(arquivo: UploadFile = File(...)):
+    """Processa um documento PDF ou imagem e extrai o texto usando OCR."""
+    try:
+        conteudo = await arquivo.read()
+        
+        if arquivo.filename.endswith(".pdf"):
+            imagens = convert_from_bytes(conteudo)
+            texto_extraido = "\n".join([pytesseract.image_to_string(img) for img in imagens])
+        else:
+            imagem = Image.open(io.BytesIO(conteudo))
+            texto_extraido = pytesseract.image_to_string(imagem)
+
+        return {"mensagem": "📄 Texto extraído com sucesso!", "texto": texto_extraido}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar documento: {str(e)}")
 
 # ✅ Envio de Mensagem para WhatsApp via Twilio
 def enviar_mensagem(telefone, mensagem):
@@ -158,11 +162,11 @@ def enviar_mensagem(telefone, mensagem):
 def testar_gpt():
     """Testa a conexão com a API da OpenAI."""
     try:
-        resposta = openai.ChatCompletion.create(
+        resposta = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "system", "content": "Diga apenas: Teste bem-sucedido!"}]
         )
-        return {"mensagem": resposta["choices"][0]["message"]["content"]}
+        return {"mensagem": resposta.choices[0].message.content}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao conectar com OpenAI: {str(e)}")
 
