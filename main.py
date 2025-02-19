@@ -9,6 +9,7 @@ from database import inserir_regra_juridica, listar_todas_regras, get_db_connect
 import re
 import requests
 from fastapi import Request
+from faiss_index import buscar_regras
 
 # ✅ Configuração do Twilio
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -94,7 +95,6 @@ async def webhook_whatsapp(
     except Exception as e:
         return {"status": f"❌ Erro ao processar mensagem: {str(e)}"}
 
-# ✅ Função para Processar Mensagem do WhatsApp (IA Jurídica consultando base de regras)
 def processar_mensagem(mensagem):
     if mensagem in ["oi", "olá", "bom dia"]:
         return "👋 Olá! Eu sou a IA Jurídica. Como posso te ajudar?\nDigite *ajuda* para ver os comandos disponíveis."
@@ -104,15 +104,19 @@ def processar_mensagem(mensagem):
     
     elif mensagem.startswith("consultar "):
         termo = mensagem.replace("consultar ", "")
-        regras = listar_todas_regras()
-        regras_encontradas = [r for r in regras if termo.lower() in r[1].lower()]
-        return f"🔎 Regras encontradas:\n" + "\n".join([f"- {r[1]}" for r in regras_encontradas]) if regras_encontradas else "⚠️ Nenhuma regra encontrada."
+        resultados = buscar_regras(termo)
+        
+        if resultados:
+            resposta = "🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}: {r['descricao']}" for r in resultados])
+            return resposta
+        return "⚠️ Nenhuma regra encontrada."
 
     elif mensagem == "regras":
         regras = listar_todas_regras()
         return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r[1]}" for r in regras])
 
     return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
+
 
 # ✅ Envio de Mensagem para WhatsApp via Twilio
 def enviar_mensagem(telefone, mensagem):
