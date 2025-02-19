@@ -5,7 +5,7 @@ import os
 import pytesseract
 from pdf2image import convert_from_bytes
 from PIL import Image
-from database import inserir_regra_juridica, listar_todas_regras
+from database import inserir_regra_juridica, listar_todas_regras, get_db_connection
 import re
 import requests
 from fastapi import Request
