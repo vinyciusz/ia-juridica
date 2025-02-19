@@ -102,14 +102,18 @@ def processar_mensagem(mensagem):
     elif mensagem == "ajuda":
         return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
     
-    elif mensagem.startswith("consultar "):
-        termo = mensagem.replace("consultar ", "")
-        resultados = buscar_regras(termo)
-        
-        if resultados:
-            resposta = "🔎 Regras encontradas:\n" + "\n".join([f"- {r['titulo']}: {r['descricao']}" for r in resultados])
-            return resposta
-        return "⚠️ Nenhuma regra encontrada."
+   elif mensagem.startswith("consultar "):
+    termo = mensagem.replace("consultar ", "")
+    regras = buscar_regras(termo)  # Agora busca no FAISS corretamente
+
+    if not regras:
+        return "⚠️ Nenhuma regra encontrada para esse termo."
+
+    resposta = "📖 *Regras encontradas:*\n"
+    for idx, r in enumerate(regras, start=1):
+        resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+
+    return resposta
 
     elif mensagem == "regras":
         regras = listar_todas_regras()
