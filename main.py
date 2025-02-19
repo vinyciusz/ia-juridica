@@ -101,26 +101,25 @@ def processar_mensagem(mensagem):
     
     elif mensagem == "ajuda":
         return "📌 Comandos disponíveis:\n1️⃣ *Regras* - Listar regras jurídicas\n2️⃣ *Consultar [termo]* - Buscar regras\n3️⃣ *Enviar documento* - Enviar um documento para análise."
-    
-   elif mensagem.startswith("consultar "):
-    termo = mensagem.replace("consultar ", "")
-    regras = buscar_regras(termo)  # Agora busca no FAISS corretamente
 
-    if not regras:
-        return "⚠️ Nenhuma regra encontrada para esse termo."
+    elif mensagem.startswith("consultar "):
+        termo = mensagem.replace("consultar ", "")
+        regras = buscar_regras(termo)  # Agora busca no FAISS corretamente
 
-    resposta = "📖 *Regras encontradas:*\n"
-    for idx, r in enumerate(regras, start=1):
-        resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+        if not regras:
+            return "⚠️ Nenhuma regra encontrada para esse termo."
 
-    return resposta
+        resposta = "📖 *Regras encontradas:*\n"
+        for idx, r in enumerate(regras, start=1):
+            resposta += f"\n➖ *{idx}. {r['titulo']}*\n📌 {r['descricao']}\n"
+
+        return resposta
 
     elif mensagem == "regras":
         regras = listar_todas_regras()
         return f"📜 Regras disponíveis:\n" + "\n".join([f"- {r[1]}" for r in regras])
 
     return "🤔 Não entendi. Digite *ajuda* para ver os comandos disponíveis."
-
 
 # ✅ Envio de Mensagem para WhatsApp via Twilio
 def enviar_mensagem(telefone, mensagem):
